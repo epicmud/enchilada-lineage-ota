@@ -101,8 +101,10 @@ gh release create "$BUILD_TAG" "./$LATEST_FILE" \
 
 ASSET_URL="https://github.com/$REPO/releases/download/$BUILD_TAG/$LATEST_FILE"
 
-echo "Updating ota.json..."
-cat <<EOF > ota.json
+echo "Updating ota.json and LineageOS API endpoints..."
+mkdir -p v1/enchilada
+
+cat <<EOF > v1/enchilada/unofficial
 {
   "response": [
     {
@@ -118,11 +120,14 @@ cat <<EOF > ota.json
 }
 EOF
 
-# Commit and push updated ota.json
+# Keep a copy at root for easy reference
+cp v1/enchilada/unofficial ota.json
+
+# Commit and push updated endpoints
 git config user.name "github-actions[bot]"
 git config user.email "github-actions[bot]@users.noreply.github.com"
-git add ota.json
-git commit -m "Update ota.json for build $BUILD_TAG"
+git add ota.json v1/
+git commit -m "Update ota.json and API endpoint for build $BUILD_TAG"
 git push
 
 echo "Successfully updated OTA endpoint!"
