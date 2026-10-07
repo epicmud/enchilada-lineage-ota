@@ -25,5 +25,4 @@ jobs:
           GDRIVE_FOLDER_ID: "1NajCZVFr2hXQVLXzKA-B4B2ePPZa2J7e"
         run: |
           chmod +x sync.sh
-          ./syn
-          c.sh
+          ./sync.sh
