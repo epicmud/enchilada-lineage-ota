@@ -8,11 +8,15 @@ on:
 jobs:
   sync:
     runs-on: ubuntu-latest
+
     permissions:
       contents: write
+
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -23,6 +27,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GDRIVE_FOLDER_ID: "1NajCZVFr2hXQVLXzKA-B4B2ePPZa2J7e"
+          GITHUB_REPOSITORY: ${{ github.repository }}
         run: |
           chmod +x sync.sh
           ./sync.sh
