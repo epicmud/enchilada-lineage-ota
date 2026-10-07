@@ -3,6 +3,7 @@ name: Sync LineageOS OTA
 on:
   schedule:
     - cron: '0 */6 * * *'
+
   workflow_dispatch:
 
 jobs:
@@ -28,6 +29,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GDRIVE_FOLDER_ID: "1NajCZVFr2hXQVLXzKA-B4B2ePPZa2J7e"
           GITHUB_REPOSITORY: ${{ github.repository }}
+
         run: |
           chmod +x sync.sh
           ./sync.sh
