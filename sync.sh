@@ -1,23 +1,34 @@
 #!/bin/bash
 set -e
 
-# Target Google Drive subfolder ID (extracted from the end of your Drive URL)
 FOLDER_ID="${GDRIVE_FOLDER_ID}"
 REPO="${GITHUB_REPOSITORY:-epicmud/enchilada-lineage-ota}"
 
 echo "Checking Google Drive folder for LineageOS builds..."
 
-# Query Google Drive via rclone for lineage-*.zip files and select the latest build
-LATEST_FILE=$(rclone lsjson --no-check-certificate --drive-root-folder-id "$FOLDER_ID" :drive: | grep -oP '"Path":"\Klineage-[^"]+\.zip' | sort -V | tail -n 1)
+# Install gdown python package
+pip3 install --quiet gdown
+
+# Create temporary directory
+mkdir -p drive_tmp
+cd drive_tmp
+
+# Download folder contents via gdown
+gdown --folder "https://drive.google.com/drive/folders/$FOLDER_ID" --remaining-ok || true
+
+# Find the latest ROM zip file
+LATEST_FILE=$(ls lineage-*.zip 2>/dev/null | sort -V | tail -n 1)
 
 if [ -z "$LATEST_FILE" ]; then
   echo "No matching ROM ZIP file found in the folder."
+  cd ..
+  rm -rf drive_tmp
   exit 0
 fi
 
-echo "Latest build found on Drive: $LATEST_FILE"
+echo "Latest build found: $LATEST_FILE"
 
-# Extract 8-digit date tag (YYYYMMDD) and LineageOS version
+# Extract date tag and LineageOS version
 BUILD_TAG=$(echo "$LATEST_FILE" | grep -oP '\d{8}')
 VERSION=$(echo "$LATEST_FILE" | grep -oP 'lineage-\K[0-9.]+')
 
@@ -25,20 +36,24 @@ if [ -z "$BUILD_TAG" ]; then
   BUILD_TAG="build-$(date +%Y%m%d)"
 fi
 
-# Check if a GitHub release for this build already exists
+cd ..
+
+# Check if release tag already exists on GitHub
 if gh release view "$BUILD_TAG" --repo "$REPO" >/dev/null 2>&1; then
-  echo "Release tag '$BUILD_TAG' already exists on GitHub. No update needed."
+  echo "Release tag '$BUILD_TAG' already exists on GitHub. Nothing to do."
+  rm -rf drive_tmp
   exit 0
 fi
 
-echo "New build detected ($LATEST_FILE). Downloading from Google Drive..."
-rclone copyto --no-check-certificate --drive-root-folder-id "$FOLDER_ID" ":drive:$LATEST_FILE" "./$LATEST_FILE"
+# Move build file to root working directory
+mv "drive_tmp/$LATEST_FILE" "./$LATEST_FILE"
+rm -rf drive_tmp
 
 # Calculate checksum and filesize
 SHA256=$(sha256sum "$LATEST_FILE" | awk '{print $1}')
 FILESIZE=$(stat -c%s "$LATEST_FILE")
 
-# Convert YYYYMMDD string to Unix timestamp for LineageOS Updater date comparison
+# Convert YYYYMMDD string to Unix timestamp
 YEAR=${BUILD_TAG:0:4}
 MONTH=${BUILD_TAG:4:2}
 DAY=${BUILD_TAG:6:2}
@@ -73,12 +88,11 @@ cat <<EOF > ota.json
 }
 EOF
 
-# Commit and push updated ota.json back to the main branch
+# Commit and push updated ota.json
 git config user.name "github-actions[bot]"
 git config user.email "github-actions[bot]@users.noreply.github.com"
 git add ota.json
 git commit -m "Update ota.json for build $BUILD_TAG"
 git push
 
-echo "Successfully created release and up
-dated ota.json!"
+echo "Successfully updated OTA endpoint!"
