@@ -1,13 +1,15 @@
-{
-  "response": [
-    {
-      "datetime": 1789862400,
-      "filename": "lineage-24.0-20260920-UNOFFICIAL-enchilada.zip",
-      "id": "8c6a9f7bc00dacf6bae237a154a763d9bc847df3d7dd959f8aef6b391876840c",
-      "romtype": "unofficial",
-      "size": 1182813410,
-      "url": "https://github.com/epicmud/enchilada-lineage-ota/releases/download/20260920/lineage-24.0-20260920-UNOFFICIAL-enchilada.zip",
-      "version": "24.0"
-    }
-  ]
-}
+[
+  {
+    "datetime": 1789862400,
+    "files": [
+      {
+        "filename": "lineage-24.0-20260920-UNOFFICIAL-enchilada.zip",
+        "sha256": "8c6a9f7bc00dacf6bae237a154a763d9bc847df3d7dd959f8aef6b391876840c",
+        "size": 1182813410,
+        "url": "https://github.com/epicmud/enchilada-lineage-ota/releases/download/20260920/lineage-24.0-20260920-UNOFFICIAL-enchilada.zip"
+      }
+    ],
+    "type": "unofficial",
+    "version": "24.0"
+  }
+]
