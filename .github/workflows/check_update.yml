@@ -1,28 +1,29 @@
-name: OTA Drive Sync
+name: Sync LineageOS OTA
 
 on:
   schedule:
-    - cron: '0 */12 * * *'
-  workflow_dispatch:
+    - cron: '0 */6 * * *' # Runs automatically every 6 hours
+  workflow_dispatch: # Allows manual triggers from GitHub Actions tab
 
 jobs:
   sync:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout Repository
+        uses: actions/checkout@v4
 
-      - name: Install Tools
+      - name: Install Dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y rclone gh
 
-      - name: Check GDrive and Mirror
+      - name: Execute Sync Script
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GDRIVE_FOLDER_ID: "1NajCZVFr2hXQVLXzKA-B4B2ePPZa2J7e"
         run: |
-          # 1. Check maintainer's Drive folder using rclone
-          # 2. Download new zip via gdown / rclone if not already in Releases
-          # 3. Create a GitHub Release: gh release create "vYYYYMMDD" lineage-24.0-*.zip
-          # 4. Generate SHA256 checksum and update ota.json
-          # 5. Commit updated ota.json back to repo
-          
+          chmod +x sync.sh
+          ./syn
+          c.sh
