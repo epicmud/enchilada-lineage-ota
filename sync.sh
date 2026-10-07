@@ -9,24 +9,55 @@ echo "Checking Google Drive folder for LineageOS builds..."
 # Install gdown python package
 pip3 install --quiet gdown
 
-# Create temporary directory
 mkdir -p drive_tmp
-cd drive_tmp
 
-# Download folder contents via gdown
-gdown --folder "https://drive.google.com/drive/folders/$FOLDER_ID" || true
+# Query Drive folder metadata as JSON without downloading payloads
+FOLDER_URL="https://drive.google.com/drive/folders/$FOLDER_ID"
+FILES_JSON=$(gdown "$FOLDER_URL" --json 2>/dev/null || true)
 
-# Find the latest ROM zip file
-LATEST_FILE=$(ls lineage-*.zip 2>/dev/null | sort -V | tail -n 1)
+if [ -z "$FILES_JSON" ]; then
+  echo "Error: Failed to fetch folder contents from Google Drive."
+  rm -rf drive_tmp
+  exit 1
+fi
 
-if [ -z "$LATEST_FILE" ]; then
+# Parse JSON to locate the newest LineageOS zip build (OFFICIAL or UNOFFICIAL)
+LATEST_INFO=$(echo "$FILES_JSON" | python3 -c '
+import sys, json
+
+try:
+    data = json.load(sys.stdin)
+except Exception:
+    sys.exit(1)
+
+zips = []
+for f in data:
+    path = f.get("path") or f.get("name") or ""
+    url = f.get("url") or (f"https://drive.google.com/uc?id={f.get(\"id\")}" if f.get("id") else "")
+    if path.lower().endswith(".zip") and "lineage" in path.lower():
+        zips.append({"path": path, "url": url})
+
+if not zips:
+    print("NONE")
+    sys.exit(0)
+
+# Sort by filename (YYYYMMDD ordering places the newest build last)
+zips.sort(key=lambda x: x["path"])
+latest = zips[-1]
+
+print(f"{latest[\"url\"]}|{latest[\"path\"]}")
+')
+
+if [ "$LATEST_INFO" = "NONE" ] || [ -z "$LATEST_INFO" ]; then
   echo "No matching ROM ZIP file found in the folder."
-  cd ..
   rm -rf drive_tmp
   exit 0
 fi
 
-echo "Latest build found: $LATEST_FILE"
+URL=$(echo "$LATEST_INFO" | cut -d'|' -f1)
+LATEST_FILE=$(echo "$LATEST_INFO" | cut -d'|' -f2)
+
+echo "Latest build detected: $LATEST_FILE"
 
 # Extract date tag and LineageOS version
 BUILD_TAG=$(echo "$LATEST_FILE" | grep -oP '\d{8}')
@@ -36,17 +67,15 @@ if [ -z "$BUILD_TAG" ]; then
   BUILD_TAG="build-$(date +%Y%m%d)"
 fi
 
-cd ..
-
-# Check if release tag already exists on GitHub
+# Check if release tag already exists on GitHub BEFORE downloading
 if gh release view "$BUILD_TAG" --repo "$REPO" >/dev/null 2>&1; then
   echo "Release tag '$BUILD_TAG' already exists on GitHub. Nothing to do."
   rm -rf drive_tmp
   exit 0
 fi
 
-# Move build file to root working directory
-mv "drive_tmp/$LATEST_FILE" "./$LATEST_FILE"
+echo "Downloading target build asset $LATEST_FILE..."
+gdown "$URL" -O "./$LATEST_FILE"
 rm -rf drive_tmp
 
 # Calculate checksum and filesize
