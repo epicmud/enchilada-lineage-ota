@@ -33,7 +33,8 @@ except Exception:
 zips = []
 for f in data:
     path = f.get("path") or f.get("name") or ""
-    url = f.get("url") or (f"https://drive.google.com/uc?id={f.get(\"id\")}" if f.get("id") else "")
+    fid = f.get("id") or ""
+    url = f.get("url") or ("https://drive.google.com/uc?id=" + fid if fid else "")
     if path.lower().endswith(".zip") and "lineage" in path.lower():
         zips.append({"path": path, "url": url})
 
@@ -45,7 +46,7 @@ if not zips:
 zips.sort(key=lambda x: x["path"])
 latest = zips[-1]
 
-print(f"{latest[\"url\"]}|{latest[\"path\"]}")
+print(latest["url"] + "|" + latest["path"])
 ')
 
 if [ "$LATEST_INFO" = "NONE" ] || [ -z "$LATEST_INFO" ]; then
