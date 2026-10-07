@@ -14,7 +14,7 @@ mkdir -p drive_tmp
 cd drive_tmp
 
 # Download folder contents via gdown
-gdown --folder "https://drive.google.com/drive/folders/$FOLDER_ID" --remaining-ok || true
+gdown --folder "https://drive.google.com/drive/folders/$FOLDER_ID" || true
 
 # Find the latest ROM zip file
 LATEST_FILE=$(ls lineage-*.zip 2>/dev/null | sort -V | tail -n 1)
