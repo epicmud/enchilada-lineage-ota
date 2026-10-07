@@ -29,7 +29,7 @@ if [ -z "$FILES_JSON" ]; then
 fi
 
 # ------------------------------------------------------------
-# Find newest LineageOS ZIP
+# Find newest LineageOS Enchilada ZIP
 # ------------------------------------------------------------
 
 LATEST_INFO=$(echo "$FILES_JSON" | python3 -c '
@@ -38,7 +38,7 @@ import json
 
 try:
     data = json.load(sys.stdin)
-except Exception as e:
+except Exception:
     print("JSON_ERROR", file=sys.stderr)
     sys.exit(1)
 
@@ -114,14 +114,14 @@ echo "  Type:    unofficial"
 # Download new build only when release does not exist
 # ------------------------------------------------------------
 
-RELEASE_EXISTS=0
-
 if gh release view "$BUILD_TAG" --repo "$REPO" >/dev/null 2>&1; then
-    RELEASE_EXISTS=1
+
     echo
     echo "GitHub release '$BUILD_TAG' already exists."
     echo "Using the existing release asset."
+
 else
+
     echo
     echo "GitHub release '$BUILD_TAG' does not exist."
     echo "Downloading ROM from Google Drive..."
@@ -136,8 +136,6 @@ else
         --repo "$REPO"
 
     rm -f "./$LATEST_FILE"
-
-    RELEASE_EXISTS=1
 fi
 
 # ------------------------------------------------------------
@@ -160,14 +158,13 @@ target = sys.argv[1]
 
 for asset in data.get("assets", []):
     if asset.get("name") == target:
-        asset_id = asset.get("id", "")
         size = asset.get("size", 0)
         digest = asset.get("digest", "")
 
         if digest.startswith("sha256:"):
             digest = digest[len("sha256:"):]
 
-        print(f"{asset_id}|{size}|{digest}")
+        print(f"{size}|{digest}")
         sys.exit(0)
 
 print("NOT_FOUND")
@@ -180,16 +177,20 @@ if [ "$ASSET_INFO" = "NOT_FOUND" ]; then
     exit 1
 fi
 
-ASSET_ID=$(echo "$ASSET_INFO" | cut -d'|' -f1)
-FILESIZE=$(echo "$ASSET_INFO" | cut -d'|' -f2)
-SHA256=$(echo "$ASSET_INFO" | cut -d'|' -f3)
+FILESIZE=$(echo "$ASSET_INFO" | cut -d'|' -f1)
+SHA256=$(echo "$ASSET_INFO" | cut -d'|' -f2)
 
 if [ -z "$FILESIZE" ] || [ "$FILESIZE" = "0" ]; then
     echo "ERROR: GitHub returned an invalid file size."
     exit 1
 fi
 
+# ------------------------------------------------------------
+# Calculate SHA256 if GitHub does not provide one
+# ------------------------------------------------------------
+
 if [ -z "$SHA256" ]; then
+
     echo
     echo "GitHub did not provide a SHA256 digest."
     echo "Downloading the release asset to calculate it..."
@@ -215,20 +216,13 @@ echo "  SHA256:   $SHA256"
 # ------------------------------------------------------------
 # Determine OTA timestamp
 # ------------------------------------------------------------
-#
-# For LineageOS 23.2+/24.x the updater uses datetime.
-#
-# If the ZIP is newly downloaded, try to extract the actual
-# post-timestamp from META-INF/com/android/metadata.
-#
-# If the release already existed and the metadata isn't locally
-# available, use the build date from the filename.
-#
-# ------------------------------------------------------------
 
 DATETIME=""
 
+# If the ZIP is locally available, use its actual Android
+# post-timestamp.
 if [ -f "./$LATEST_FILE" ]; then
+
     METADATA_TIMESTAMP=$(unzip -p "./$LATEST_FILE" \
         META-INF/com/android/metadata 2>/dev/null \
         | grep '^post-timestamp=' \
@@ -241,8 +235,10 @@ if [ -f "./$LATEST_FILE" ]; then
     fi
 fi
 
-# If we don't have the ZIP locally, use the date in the filename.
+# If the ZIP isn't available locally, use the build date
+# contained in the filename.
 if [ -z "$DATETIME" ]; then
+
     YEAR="${BUILD_TAG:0:4}"
     MONTH="${BUILD_TAG:4:2}"
     DAY="${BUILD_TAG:6:2}"
@@ -254,8 +250,11 @@ if [ -z "$DATETIME" ]; then
         DATETIME=$(date -u \
             -d "${YEAR}-${MONTH}-${DAY} 23:59:59" \
             +%s)
+
     else
+
         DATETIME=$(date -u +%s)
+
     fi
 fi
 
@@ -268,7 +267,7 @@ echo "  OTA datetime: $DATETIME"
 ASSET_URL="https://github.com/$REPO/releases/download/$BUILD_TAG/$LATEST_FILE"
 
 # ------------------------------------------------------------
-# Generate LineageOS 23.2+/24.x API v2 endpoint
+# Generate LineageOS 24 OTA v2 endpoint
 # ------------------------------------------------------------
 
 echo
@@ -295,42 +294,25 @@ cat > api/v2/devices/enchilada/builds <<EOF
 EOF
 
 # ------------------------------------------------------------
-# Keep the old v1 endpoint too
+# Root copy for easy reference
 # ------------------------------------------------------------
 
-mkdir -p v1/enchilada
-
-cat > v1/enchilada/unofficial <<EOF
-[
-  {
-    "datetime": $DATETIME,
-    "files": [
-      {
-        "filename": "$LATEST_FILE",
-        "sha256": "$SHA256",
-        "size": $FILESIZE,
-        "url": "$ASSET_URL"
-      }
-    ],
-    "type": "unofficial",
-    "version": "$VERSION"
-  }
-]
-EOF
-
-# Root copy
 cp api/v2/devices/enchilada/builds ota.json
 
 # ------------------------------------------------------------
-# Validate generated JSON
+# Validate JSON
 # ------------------------------------------------------------
 
 echo
 echo "Validating JSON..."
 
-python3 -m json.tool api/v2/devices/enchilada/builds >/dev/null
-python3 -m json.tool v1/enchilada/unofficial >/dev/null
-python3 -m json.tool ota.json >/dev/null
+python3 -m json.tool \
+    api/v2/devices/enchilada/builds \
+    >/dev/null
+
+python3 -m json.tool \
+    ota.json \
+    >/dev/null
 
 echo "JSON validation successful."
 
@@ -350,16 +332,19 @@ git config user.email "github-actions[bot]@users.noreply.github.com"
 
 git add \
     ota.json \
-    api/v2/devices/enchilada/builds \
-    v1/enchilada/unofficial
+    api/v2/devices/enchilada/builds
 
 if git diff --cached --quiet; then
+
     echo "OTA endpoint is already up to date."
+
 else
+
     git commit \
         -m "Update OTA endpoint for build $BUILD_TAG"
 
     git push
+
 fi
 
 echo
