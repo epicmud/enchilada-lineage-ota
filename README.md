@@ -1,4 +1,4 @@
-GitHub actions automation to allow for auto update of an unofficial enchilada build of Lineage by EdwinMoq
+GitHub actions automation to allow for auto update of an unofficial Lineage OS
 
 Simply install the module to set it up (Root required)
 
